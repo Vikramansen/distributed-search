@@ -1,0 +1,36 @@
+# Video game search synonyms
+# Format: word1, word2, word3  (all treated as equivalent)
+#         word1 => word2        (one-way mapping)
+
+# Platform aliases
+ps5, playstation 5, playstation5
+ps4, playstation 4, playstation4
+xbox series x, xbox sx, xsx
+xbox series s, xbox ss
+pc, computer, windows
+
+# Genre synonyms
+fps, first person shooter, first-person shooter
+rpg, role playing game, role-playing game
+mmorpg, massively multiplayer online rpg
+rts, real time strategy, real-time strategy
+tps, third person shooter, third-person shooter
+
+# Common abbreviations
+dlc, downloadable content
+ost, original soundtrack
+goty, game of the year
+
+# Developer shorthand
+rockstar => rockstar games
+naughty dog => naughty dog games
+cdpr => cd projekt red
+fromsoft => fromsoftware
+
+# Franchise aliases
+zelda => the legend of zelda
+cod => call of duty
+gta => grand theft auto
+tlou => the last of us
+mgs => metal gear solid
+ff => final fantasy

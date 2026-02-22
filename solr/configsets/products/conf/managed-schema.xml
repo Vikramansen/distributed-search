@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  SolrCloud Schema for "games" collection — Video Game Search
+  ─────────────────────────────────────────────────────────────
+  Supports:
+    • Full-text search across title, description, developer, publisher
+    • Faceted search by genre, platform, ESRB rating, year
+    • Autocomplete / suggest via EdgeNGram field
+    • Sorting by price, metacritic score, release date
+    • Multi-platform field (PS5, Xbox, PC, Switch …)
+    • Field-level boosting (title^3 > genre^2 > description)
+-->
+<schema name="games" version="1.6">
+
+  <!-- ── Unique Key ──────────────────────────────────────── -->
+  <uniqueKey>id</uniqueKey>
+
+  <!-- ── Field Types ────────────────────────────────────── -->
+
+  <fieldType name="string"  class="solr.StrField"         sortMissingLast="true" docValues="true"/>
+  <fieldType name="boolean" class="solr.BoolField"        sortMissingLast="true"/>
+  <fieldType name="int"     class="solr.IntPointField"    docValues="true"/>
+  <fieldType name="float"   class="solr.FloatPointField"  docValues="true"/>
+  <fieldType name="long"    class="solr.LongPointField"   docValues="true"/>
+  <fieldType name="pdate"   class="solr.DatePointField"   docValues="true"/>
+
+  <!-- Full-text English: lowercased, stop-words, stemmed -->
+  <fieldType name="text_en" class="solr.TextField" positionIncrementGap="100" autoGeneratePhraseQueries="true">
+    <analyzer type="index">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_en.txt"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.EnglishMinimalStemFilterFactory"/>
+      <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.SynonymGraphFilterFactory" synonyms="lang/synonyms.txt" ignoreCase="true" expand="true"/>
+      <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_en.txt"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.EnglishMinimalStemFilterFactory"/>
+      <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <!-- Autocomplete / suggest: EdgeNGram (2–15 chars) -->
+  <fieldType name="text_suggest" class="solr.TextField" positionIncrementGap="100">
+    <analyzer type="index">
+      <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.EdgeNGramFilterFactory" minGramSize="2" maxGramSize="15"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <!-- ── Fields ──────────────────────────────────────────── -->
+
+  <!-- Core identifier -->
+  <field name="id"               type="string"  indexed="true"  stored="true"  required="true"/>
+
+  <!-- Searchable text (boost: title > developer > description) -->
+  <field name="title"            type="text_en" indexed="true"  stored="true"  required="true" termVectors="true"/>
+  <field name="description"      type="text_en" indexed="true"  stored="true"/>
+  <field name="developer"        type="text_en" indexed="true"  stored="true"/>
+  <field name="publisher"        type="text_en" indexed="true"  stored="true"/>
+  <field name="tags"             type="text_en" indexed="true"  stored="true"  multiValued="true"/>
+
+  <!-- Facet / filter fields -->
+  <field name="genre"            type="string"  indexed="true"  stored="true"  multiValued="true"/>
+  <field name="platform"         type="string"  indexed="true"  stored="true"  multiValued="true"/>
+  <field name="esrb_rating"      type="string"  indexed="true"  stored="true"/>
+  <field name="developer_exact"  type="string"  indexed="true"  stored="false" docValues="true"/>
+
+  <!-- Numeric metrics -->
+  <field name="price"            type="float"   indexed="true"  stored="true"/>
+  <field name="sale_price"       type="float"   indexed="true"  stored="true"/>
+  <field name="metacritic_score" type="int"     indexed="true"  stored="true"/>
+  <field name="user_score"       type="float"   indexed="true"  stored="true"/>
+  <field name="review_count"     type="int"     indexed="true"  stored="true"/>
+  <field name="playtime_hours"   type="float"   indexed="true"  stored="true"/>
+  <field name="release_year"     type="int"     indexed="true"  stored="true"/>
+
+  <!-- Dates -->
+  <field name="release_date"     type="pdate"   indexed="true"  stored="true"/>
+  <field name="updated_at"       type="pdate"   indexed="true"  stored="true"/>
+
+  <!-- Flags -->
+  <field name="on_sale"          type="boolean" indexed="true"  stored="true"/>
+  <field name="multiplayer"      type="boolean" indexed="true"  stored="true"/>
+  <field name="has_dlc"          type="boolean" indexed="true"  stored="true"/>
+  <field name="featured"         type="boolean" indexed="true"  stored="true"/>
+
+  <!-- Autocomplete suggest field -->
+  <field name="suggest"          type="text_suggest" indexed="true" stored="false" multiValued="true"/>
+
+  <!-- Catch-all: everything goes into _text_ for unqualified queries -->
+  <field name="_text_"           type="text_en" indexed="true"  stored="false" multiValued="true"/>
+
+  <!-- SolrCloud internal fields -->
+  <field name="_version_"        type="long"    indexed="false" stored="false"/>
+  <field name="_root_"           type="string"  indexed="true"  stored="false" docValues="false"/>
+
+  <!-- ── Copy Fields ─────────────────────────────────────── -->
+  <copyField source="title"       dest="_text_"/>
+  <copyField source="description" dest="_text_"/>
+  <copyField source="developer"   dest="_text_"/>
+  <copyField source="publisher"   dest="_text_"/>
+  <copyField source="tags"        dest="_text_"/>
+  <copyField source="genre"       dest="_text_"/>
+
+  <!-- Autocomplete from title + developer -->
+  <copyField source="title"       dest="suggest"/>
+  <copyField source="developer"   dest="suggest"/>
+
+  <!-- developer_exact mirrors developer for faceting -->
+  <copyField source="developer"   dest="developer_exact"/>
+
+</schema>

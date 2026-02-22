@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+  <luceneMatchVersion>9.0</luceneMatchVersion>
+
+  <!-- ── Data Directory ─────────────────────────────────── -->
+  <dataDir>${solr.data.dir:}</dataDir>
+
+  <!-- ── Index Writer ───────────────────────────────────── -->
+  <indexConfig>
+    <ramBufferSizeMB>100</ramBufferSizeMB>
+    <maxCommitMergeWaitMillis>0</maxCommitMergeWaitMillis>
+    <lockType>${solr.lock.type:native}</lockType>
+  </indexConfig>
+
+  <!-- ── Update Handler ─────────────────────────────────── -->
+  <updateHandler class="solr.DirectUpdateHandler2">
+    <updateLog>
+      <str name="dir">${solr.ulog.dir:}</str>
+      <int name="numRecordsToKeep">500</int>
+      <int name="maxNumLogsToKeep">20</int>
+    </updateLog>
+    <!-- Auto-commit every 15 s or 5000 docs, whichever comes first -->
+    <autoCommit>
+      <maxTime>15000</maxTime>
+      <maxDocs>5000</maxDocs>
+      <openSearcher>false</openSearcher>
+    </autoCommit>
+    <!-- Soft-commit (near-real-time) every 1 s -->
+    <autoSoftCommit>
+      <maxTime>1000</maxTime>
+    </autoSoftCommit>
+  </updateHandler>
+
+  <!-- ── Query ──────────────────────────────────────────── -->
+  <query>
+    <maxBooleanClauses>${solr.max.booleanClauses:1024}</maxBooleanClauses>
+    <filterCache  class="solr.CaffeineCache" size="512" initialSize="64" autowarmCount="0"/>
+    <queryResultCache class="solr.CaffeineCache" size="512" initialSize="64" autowarmCount="32"/>
+    <documentCache  class="solr.CaffeineCache" size="512" initialSize="64" autowarmCount="0"/>
+    <enableLazyFieldLoading>true</enableLazyFieldLoading>
+    <queryResultWindowSize>20</queryResultWindowSize>
+    <queryResultMaxDocsCached>200</queryResultMaxDocsCached>
+    <useColdSearcher>false</useColdSearcher>
+    <maxWarmingSearchers>2</maxWarmingSearchers>
+  </query>
+
+  <!-- ── Request Dispatcher ─────────────────────────────── -->
+  <requestDispatcher>
+    <requestParsers enableRemoteStreaming="true" multipartUploadLimitInKB="-1"/>
+    <httpCaching never304="true"/>
+  </requestDispatcher>
+
+  <!-- ── Request Handlers ───────────────────────────────── -->
+
+  <!-- Default search: /select -->
+  <requestHandler name="/select" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str  name="echoParams">explicit</str>
+      <str  name="df">_text_</str>
+      <int  name="rows">20</int>
+      <str  name="defType">edismax</str>
+      <!-- Field boosts: title is 3×, developer 2×, rest 1× -->
+      <str  name="qf">title^3 developer^2 publisher^1.5 description^1 genre^1 tags^1</str>
+      <str  name="pf">title^5 description^1.5</str>
+      <str  name="mm">2&lt;-1 5&lt;80%</str>
+      <!-- Default sort by score descending -->
+      <str  name="sort">score desc</str>
+      <!-- Return useful fields -->
+      <str  name="fl">id,title,developer,publisher,genre,platform,price,sale_price,metacritic_score,user_score,esrb_rating,release_date,multiplayer,on_sale,featured,score</str>
+      <!-- Highlighting -->
+      <str  name="hl">on</str>
+      <str  name="hl.fl">title,description</str>
+      <str  name="hl.fragsize">150</str>
+      <str  name="hl.snippets">2</str>
+    </lst>
+    <arr name="last-components">
+      <str>spellcheck</str>
+    </arr>
+  </requestHandler>
+
+  <!-- Faceted search handler -->
+  <requestHandler name="/facet" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str  name="echoParams">explicit</str>
+      <str  name="df">_text_</str>
+      <str  name="defType">edismax</str>
+      <str  name="qf">title^3 developer^2 description^1 genre^1</str>
+      <int  name="rows">20</int>
+      <!-- Facets -->
+      <str  name="facet">on</str>
+      <str  name="facet.field">genre</str>
+      <str  name="facet.field">platform</str>
+      <str  name="facet.field">esrb_rating</str>
+      <str  name="facet.field">release_year</str>
+      <str  name="facet.range">price</str>
+      <int  name="facet.range.start">0</int>
+      <int  name="facet.range.end">80</int>
+      <int  name="facet.range.gap">20</int>
+      <str  name="facet.range">metacritic_score</str>
+      <int  name="facet.range.start">0</int>
+      <int  name="facet.range.end">100</int>
+      <int  name="facet.range.gap">10</int>
+      <int  name="facet.mincount">1</int>
+      <int  name="facet.limit">20</int>
+      <str  name="fl">id,title,developer,genre,platform,price,metacritic_score,score</str>
+    </lst>
+  </requestHandler>
+
+  <!-- Suggest / autocomplete handler -->
+  <requestHandler name="/suggest" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="suggest">true</str>
+      <str name="suggest.count">10</str>
+      <str name="suggest.dictionary">gameSuggest</str>
+    </lst>
+    <arr name="components">
+      <str>suggest</str>
+    </arr>
+  </requestHandler>
+
+  <!-- More Like This -->
+  <requestHandler name="/mlt" class="solr.MoreLikeThisHandler">
+    <lst name="defaults">
+      <str name="mlt.fl">title,description,genre,tags</str>
+      <int name="mlt.mindf">1</int>
+      <int name="mlt.mintf">1</int>
+      <int name="rows">10</int>
+      <str name="fl">id,title,developer,genre,metacritic_score</str>
+    </lst>
+  </requestHandler>
+
+  <!-- Update handler -->
+  <requestHandler name="/update" class="solr.UpdateRequestHandler"/>
+
+  <!-- Admin handlers -->
+  <requestHandler name="/admin/ping" class="solr.PingRequestHandler">
+    <lst name="invariants">
+      <str name="q">*:*</str>
+    </lst>
+    <lst name="defaults">
+      <str name="echoParams">all</str>
+    </lst>
+  </requestHandler>
+
+  <!-- ── Search Components ──────────────────────────────── -->
+
+  <searchComponent name="spellcheck" class="solr.SpellCheckComponent">
+    <str name="queryAnalyzerFieldType">text_en</str>
+    <lst name="spellchecker">
+      <str  name="name">default</str>
+      <str  name="field">title</str>
+      <str  name="classname">solr.DirectSolrSpellChecker</str>
+      <str  name="distanceMeasure">internal</str>
+      <float name="accuracy">0.5</float>
+      <int  name="maxEdits">2</int>
+      <int  name="minPrefix">1</int>
+      <int  name="maxInspections">5</int>
+      <int  name="minQueryLength">4</int>
+      <float name="maxQueryFrequency">0.01</float>
+    </lst>
+  </searchComponent>
+
+  <searchComponent name="suggest" class="solr.SuggestComponent">
+    <lst name="suggester">
+      <str name="name">gameSuggest</str>
+      <!-- AnalyzingLookupFactory uses stored field values as dictionary entries,
+           then applies text_suggest (EdgeNGram) analysis for prefix matching -->
+      <str name="lookupImpl">AnalyzingLookupFactory</str>
+      <str name="dictionaryImpl">DocumentDictionaryFactory</str>
+      <str name="field">title</str>
+      <str name="weightField">metacritic_score</str>
+      <str name="suggestAnalyzerFieldType">text_suggest</str>
+      <str name="buildOnStartup">false</str>
+      <str name="buildOnCommit">false</str>
+    </lst>
+  </searchComponent>
+
+</config>
